@@ -1,6 +1,7 @@
 import { useAuth } from '../contexts/AuthContext'
 import { logout } from '../services/authService'
 import { useNavigate } from 'react-router-dom'
+import AulaLogoMark from '../components/AulaLogoMark'
 
 export default function DashboardPage() {
   const { profile } = useAuth()
@@ -14,7 +15,12 @@ export default function DashboardPage() {
   return (
     <main id="main-content" className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">StudyRoom</h1>
+        <h1 className="inline-flex items-center gap-2 text-xl font-bold text-gray-900">
+          <AulaLogoMark size={28} />
+          <span>
+            aula<span style={{ color: '#c95636' }}>.</span>
+          </span>
+        </h1>
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/profile')}
