@@ -1,6 +1,30 @@
-# React + TypeScript + Vite
+# aula — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Salón de estudio colaborativo en tiempo real para estudiantes universitarios. React + TypeScript + Vite + Tailwind CSS.
+
+**Producción:** https://aula-weld.vercel.app/
+
+## Desarrollo local
+
+```bash
+npm install
+npm run dev
+```
+
+Configurar `.env` con las variables `VITE_FIREBASE_*` (ver `.env.example`).
+
+## Scripts
+
+- `npm run dev` — servidor de desarrollo
+- `npm run build` — build de producción
+- `npm run lint` — ESLint
+- `npm run preview` — previsualizar build local
+
+---
+
+## Stack y referencias
+
+React + TypeScript + Vite con HMR y ESLint.
 
 Currently, two official plugins are available:
 
