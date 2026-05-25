@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LandingPage from '../pages/LandingPage'
-import LoginPage from '../pages/LoginPage'
-import RegisterPage from '../pages/RegisterPage'
+import AuthPage from '../pages/AuthPage'
 import UsernameSetupPage from '../pages/UsernameSetupPage'
 import DashboardPage from '../pages/DashboardPage'
 import ProfilePage from '../pages/ProfilePage'
@@ -13,8 +12,8 @@ export default function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/login" element={<AuthPage mode="login" />} />
+        <Route path="/register" element={<AuthPage mode="register" />} />
         <Route path="/register/username" element={<UsernameSetupPage />} />
         <Route
           path="/dashboard"
