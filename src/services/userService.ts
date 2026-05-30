@@ -1,34 +1,26 @@
-import { doc, getDoc, writeBatch, serverTimestamp } from 'firebase/firestore'
-import { db } from '../config/firebase'
+import { apiRequest } from '../api/client'
+import type { CreateUserProfileInput, UserProfile } from '../types/auth'
 
-export interface UserProfile {
-  uid: string
-  firstName: string
-  lastName: string
-  username: string
-  email: string
-  avatarUrl: string
-  provider: 'email' | 'google'
-}
+export type { UserProfile, CreateUserProfileInput }
 
 export async function isUsernameAvailable(username: string): Promise<boolean> {
-  const snap = await getDoc(doc(db, 'usernames', username.toLowerCase()))
-  return !snap.exists()
+  const data = await apiRequest<{ available: boolean }>(
+    `/api/users/username/${encodeURIComponent(username)}/available`
+  )
+  return data.available
 }
 
-export async function createUserProfile(profile: UserProfile): Promise<void> {
-  const batch = writeBatch(db)
-  batch.set(doc(db, 'users', profile.uid), {
-    ...profile,
-    username: profile.username.toLowerCase(),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+export async function createUserProfile(input: CreateUserProfileInput): Promise<UserProfile> {
+  return apiRequest<UserProfile>('/api/users/profile', {
+    method: 'POST',
+    body: JSON.stringify(input),
   })
-  batch.set(doc(db, 'usernames', profile.username.toLowerCase()), { uid: profile.uid })
-  await batch.commit()
 }
 
-export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  const snap = await getDoc(doc(db, 'users', uid))
-  return snap.exists() ? (snap.data() as UserProfile) : null
+export async function getUserProfile(): Promise<UserProfile | null> {
+  try {
+    return await apiRequest<UserProfile>('/api/users/profile')
+  } catch {
+    return null
+  }
 }

@@ -4,11 +4,12 @@ import { useNavigate } from 'react-router-dom'
 import AulaLogoMark from '../components/AulaLogoMark'
 
 export default function DashboardPage() {
-  const { profile } = useAuth()
+  const { profile, clearSession } = useAuth()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
     await logout()
+    clearSession()
     navigate('/login')
   }
 

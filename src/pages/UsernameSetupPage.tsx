@@ -47,13 +47,12 @@ export default function UsernameSetupPage() {
         return
       }
       await createUserProfile({
-        uid: user.uid,
         firstName: user.displayName?.split(' ')[0] ?? '',
         lastName: user.displayName?.split(' ').slice(1).join(' ') ?? '',
         username: username.toLowerCase(),
-        email: user.email ?? '',
+        email: user.email,
         avatarUrl:
-          user.photoURL ??
+          user.photoUrl ??
           `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(username)}`,
         provider: 'google',
       })

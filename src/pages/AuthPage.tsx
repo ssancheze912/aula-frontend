@@ -10,6 +10,7 @@ import {
   createUserProfile,
   getUserProfile,
 } from '../services/userService'
+import { ApiError } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import AulaLogoMark from '../components/AulaLogoMark'
 
@@ -18,19 +19,6 @@ const DARK_GREEN = '#1f4023'
 const ACCENT_GREEN = '#4f8e4a'
 const CORAL = '#c95636'
 const YELLOW = '#fbefc2'
-
-const FIREBASE_MESSAGES: Record<string, string> = {
-  'auth/user-not-found': 'No existe una cuenta con ese correo',
-  'auth/wrong-password': 'Contraseña incorrecta',
-  'auth/invalid-credential': 'Credenciales inválidas',
-  'auth/email-already-in-use': 'Este correo ya está registrado',
-  'auth/weak-password': 'La contraseña es muy débil',
-  'auth/invalid-email': 'Formato de correo inválido',
-  'auth/too-many-requests': 'Demasiados intentos. Intenta más tarde',
-  'auth/popup-closed-by-user': 'Ventana de Google cerrada. Intenta de nuevo',
-  'auth/popup-blocked': 'El navegador bloqueó el popup',
-  'auth/network-request-failed': 'Sin conexión. Verifica tu internet',
-}
 
 type Mode = 'login' | 'register'
 
@@ -294,7 +282,7 @@ interface AuthPageProps {
 
 export default function AuthPage({ mode }: AuthPageProps) {
   const navigate = useNavigate()
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile, establishSession } = useAuth()
   const isRegister = mode === 'register'
 
   const [form, setForm] = useState({
@@ -356,9 +344,8 @@ export default function AuthPage({ mode }: AuthPageProps) {
     setLoading(true)
     try {
       if (isRegister) {
-        const { user: newUser } = await registerWithEmail(form.email, form.password)
-        await createUserProfile({
-          uid: newUser.uid,
+        const auth = await registerWithEmail(form.email, form.password)
+        const newProfile = await createUserProfile({
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
           username: form.username.toLowerCase(),
@@ -366,13 +353,17 @@ export default function AuthPage({ mode }: AuthPageProps) {
           avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(form.firstName)}`,
           provider: 'email',
         })
+        establishSession(auth, newProfile)
       } else {
-        await loginWithEmail(form.email, form.password)
+        const auth = await loginWithEmail(form.email, form.password)
+        const userProfile = await getUserProfile().catch(() => null)
+        establishSession(auth, userProfile)
       }
       navigate('/dashboard')
     } catch (err: unknown) {
-      const code = (err as { code?: string }).code ?? ''
-      setErrors({ general: FIREBASE_MESSAGES[code] ?? 'Error. Intenta de nuevo.' })
+      const message =
+        err instanceof ApiError ? err.message : 'Error. Intenta de nuevo.'
+      setErrors({ general: message })
     } finally {
       setLoading(false)
     }
@@ -382,12 +373,14 @@ export default function AuthPage({ mode }: AuthPageProps) {
     setErrors({})
     setLoading(true)
     try {
-      const { user: gUser } = await loginWithGoogle()
-      const existingProfile = await getUserProfile(gUser.uid)
+      const auth = await loginWithGoogle()
+      const existingProfile = await getUserProfile().catch(() => null)
+      establishSession(auth, existingProfile)
       navigate(existingProfile ? '/dashboard' : '/register/username', { replace: true })
     } catch (err: unknown) {
-      const code = (err as { code?: string }).code ?? ''
-      setErrors({ general: FIREBASE_MESSAGES[code] ?? 'Error al iniciar con Google' })
+      const message =
+        err instanceof ApiError ? err.message : 'Error al iniciar con Google'
+      setErrors({ general: message })
     } finally {
       setLoading(false)
     }
