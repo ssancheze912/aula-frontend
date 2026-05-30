@@ -1,5 +1,4 @@
-import { doc, getDoc, writeBatch, serverTimestamp } from 'firebase/firestore'
-import { db } from '../config/firebase'
+import { api, ApiError } from './api'
 
 export interface UserProfile {
   uid: string
@@ -11,24 +10,42 @@ export interface UserProfile {
   provider: 'email' | 'google'
 }
 
+/**
+ * Disponibilidad de username (público). Se consulta durante el registro,
+ * antes de tener sesión.
+ */
 export async function isUsernameAvailable(username: string): Promise<boolean> {
-  const snap = await getDoc(doc(db, 'usernames', username.toLowerCase()))
-  return !snap.exists()
+  const { available } = await api<{ available: boolean }>(
+    `/users/check-username/${encodeURIComponent(username)}`,
+    { auth: false }
+  )
+  return available
 }
 
+/**
+ * Crea el perfil del usuario autenticado vía backend (el uid se toma del token).
+ */
 export async function createUserProfile(profile: UserProfile): Promise<void> {
-  const batch = writeBatch(db)
-  batch.set(doc(db, 'users', profile.uid), {
-    ...profile,
-    username: profile.username.toLowerCase(),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  // El uid lo deriva el backend del token; no se envía en el body.
+  await api('/users', {
+    method: 'POST',
+    body: {
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      username: profile.username,
+      email: profile.email,
+      avatarUrl: profile.avatarUrl,
+      provider: profile.provider,
+    },
   })
-  batch.set(doc(db, 'usernames', profile.username.toLowerCase()), { uid: profile.uid })
-  await batch.commit()
 }
 
+/** Obtiene el perfil del usuario. Devuelve null si aún no existe (404). */
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  const snap = await getDoc(doc(db, 'users', uid))
-  return snap.exists() ? (snap.data() as UserProfile) : null
+  try {
+    return await api<UserProfile>(`/users/${uid}`)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null
+    throw err
+  }
 }
