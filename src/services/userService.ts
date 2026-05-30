@@ -8,6 +8,12 @@ export interface UserProfile {
   email: string
   avatarUrl: string
   provider: 'email' | 'google'
+  bio?: string
+  link?: string
+  university?: string
+  career?: string
+  year?: string
+  country?: string
 }
 
 /**
@@ -48,4 +54,37 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     if (err instanceof ApiError && err.status === 404) return null
     throw err
   }
+}
+
+/** Campos editables del perfil (US-04). */
+export type ProfileUpdate = Partial<
+  Pick<
+    UserProfile,
+    | 'firstName'
+    | 'lastName'
+    | 'avatarUrl'
+    | 'username'
+    | 'bio'
+    | 'link'
+    | 'university'
+    | 'career'
+    | 'year'
+    | 'country'
+  >
+>
+
+/**
+ * Actualiza el perfil del usuario (US-04). Devuelve el perfil ya actualizado.
+ * Lanza ApiError 409 si el username elegido ya está en uso.
+ */
+export async function updateUserProfile(
+  uid: string,
+  updates: ProfileUpdate
+): Promise<UserProfile> {
+  return api<UserProfile>(`/users/${uid}`, { method: 'PATCH', body: updates })
+}
+
+/** Elimina la cuenta del usuario (US-05): perfil + username + Firebase Auth. */
+export async function deleteAccount(uid: string): Promise<void> {
+  await api(`/users/${uid}`, { method: 'DELETE' })
 }
