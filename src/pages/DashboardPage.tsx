@@ -442,6 +442,22 @@ function hash(str: string): number {
   return h
 }
 
+/* ---------------------------------- Tabs ---------------------------------- */
+
+type TabKey = 'todas' | 'envivo' | 'inactivas'
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'todas', label: 'Todas' },
+  { key: 'envivo', label: 'En vivo' },
+  { key: 'inactivas', label: 'Inactivas' },
+]
+
+// Estado de presencia de una sala. La presencia en vivo se integra en sprints
+// posteriores (WebSockets); por ahora todas las salas se consideran inactivas.
+function roomIsLive(_room: RoomSummary): boolean {
+  return false
+}
+
 /* -------------------------------- Página ---------------------------------- */
 
 export default function DashboardPage() {
@@ -453,6 +469,7 @@ export default function DashboardPage() {
   const [loadError, setLoadError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [query, setQuery] = useState('')
+  const [tab, setTab] = useState<TabKey>('todas')
 
   useEffect(() => {
     let active = true
@@ -472,9 +489,13 @@ export default function DashboardPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return rooms
-    return rooms.filter((r) => r.name.toLowerCase().includes(q))
-  }, [rooms, query])
+    return rooms.filter((r) => {
+      if (q && !r.name.toLowerCase().includes(q)) return false
+      if (tab === 'envivo') return roomIsLive(r)
+      if (tab === 'inactivas') return !roomIsLive(r)
+      return true
+    })
+  }, [rooms, query, tab])
 
   const fullName = `${profile?.firstName ?? ''} ${profile?.lastName ?? ''}`.trim() || 'Tú'
   const firstName = profile?.firstName ?? ''
@@ -636,24 +657,33 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Tabs (filtro visual; presencia en vivo llega en sprints posteriores) */}
-          <div className="flex gap-1 mt-6" style={{ borderBottom: '1px solid rgba(26,31,24,0.1)' }}>
-            {['Todas', 'En vivo', 'Inactivas'].map((tab, i) => (
-              <span
-                key={tab}
-                aria-current={i === 0 ? 'true' : undefined}
-                style={{
-                  padding: '9px 16px',
-                  fontFamily: "'Nunito', sans-serif",
-                  fontWeight: 600,
-                  fontSize: '14px',
-                  color: i === 0 ? ACCENT_GREEN : MUTED,
-                  borderBottom: i === 0 ? `2px solid ${ACCENT_GREEN}` : '2px solid transparent',
-                }}
-              >
-                {tab}
-              </span>
-            ))}
+          {/* Tabs: filtran las salas por estado de presencia. */}
+          <div className="flex gap-1 mt-6" role="tablist" aria-label="Filtrar salas" style={{ borderBottom: '1px solid rgba(26,31,24,0.1)' }}>
+            {TABS.map(({ key, label }) => {
+              const isActive = tab === key
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setTab(key)}
+                  className="focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-t"
+                  style={{
+                    padding: '9px 16px',
+                    fontFamily: "'Nunito', sans-serif",
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    color: isActive ? ACCENT_GREEN : MUTED,
+                    borderBottom: isActive ? `2px solid ${ACCENT_GREEN}` : '2px solid transparent',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -673,7 +703,13 @@ export default function DashboardPage() {
             </div>
           ) : filtered.length === 0 ? (
             <p className="text-center py-16" style={{ color: MUTED }}>
-              No hay salas que coincidan con “{query}”.
+              {query.trim()
+                ? `No hay salas que coincidan con “${query}”.`
+                : tab === 'envivo'
+                  ? 'No tenés salas en vivo en este momento.'
+                  : tab === 'inactivas'
+                    ? 'No tenés salas inactivas.'
+                    : 'No hay salas para mostrar.'}
             </p>
           ) : (
             <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
