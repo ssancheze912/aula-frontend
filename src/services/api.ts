@@ -35,10 +35,16 @@ export async function api<T = unknown>(
     headers.Authorization = `Bearer ${await current.getIdToken()}`
   }
 
+  // Validar la ruta antes de construir la URL (evita inyección de host/esquema):
+  // solo se acepta una ruta relativa de la API con caracteres seguros.
+  if (!/^\/[A-Za-z0-9\-._~/%]*$/.test(path)) {
+    throw new ApiError(400, 'Ruta de API inválida')
+  }
+
   const res = await fetch(`${BASE_URL}/api${path}`, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body === undefined ? undefined : JSON.stringify(body),
   })
 
   const data = await res.json().catch(() => ({}))
