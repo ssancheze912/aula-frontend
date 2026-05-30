@@ -29,8 +29,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const refreshProfile = async () => {
-    if (user) {
-      const p = await getUserProfile(user.uid)
+    // Usa auth.currentUser (siempre actualizado) en vez del estado del contexto,
+    // que puede ir un paso atrás justo después del registro.
+    const current = auth.currentUser
+    if (current) {
+      const p = await getUserProfile(current.uid)
       setProfile(p)
     }
   }
