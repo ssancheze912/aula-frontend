@@ -294,7 +294,7 @@ interface AuthPageProps {
 
 export default function AuthPage({ mode }: AuthPageProps) {
   const navigate = useNavigate()
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const isRegister = mode === 'register'
 
   const [form, setForm] = useState({
@@ -366,6 +366,9 @@ export default function AuthPage({ mode }: AuthPageProps) {
           avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(form.firstName)}`,
           provider: 'email',
         })
+        // Refrescar el perfil en el contexto para que PrivateRoute no rebote
+        // a /register/username (flujo exclusivo de Google).
+        await refreshProfile()
       } else {
         await loginWithEmail(form.email, form.password)
       }
