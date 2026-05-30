@@ -2,6 +2,25 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { isUsernameAvailable, createUserProfile } from '../services/userService'
+import AulaLogoMark from '../components/AulaLogoMark'
+
+const CREAM = '#fbf7ee'
+const ACCENT_GREEN = '#4f8e4a'
+const CORAL = '#c95636'
+
+function AtIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
 
 export default function UsernameSetupPage() {
   const { user, profile, loading, refreshProfile } = useAuth()
@@ -14,10 +33,11 @@ export default function UsernameSetupPage() {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: CREAM, fontFamily: "'Nunito', sans-serif" }}
         aria-live="polite"
         aria-busy="true"
       >
-        <p className="text-gray-600">Cargando...</p>
+        <p style={{ color: '#6e6b5e' }}>Cargando...</p>
       </div>
     )
   }
@@ -69,51 +89,144 @@ export default function UsernameSetupPage() {
   return (
     <main
       id="main-content"
-      className="min-h-screen flex items-center justify-center bg-gray-50 p-4"
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ backgroundColor: CREAM, fontFamily: "'Nunito', sans-serif" }}
     >
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Elige tu nombre de usuario</h1>
-        <p className="text-gray-500 text-sm mb-6">
-          Hola, {user.displayName ?? user.email}. Solo falta elegir un username único para
-          completar tu registro.
+      <div
+        className="w-full max-w-md bg-white p-8"
+        style={{
+          border: '1px solid rgba(26, 31, 24, 0.12)',
+          borderRadius: '20px',
+          boxShadow: '0px 8px 32px rgba(31, 64, 35, 0.06)',
+        }}
+      >
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex items-center gap-2">
+            <AulaLogoMark size={32} />
+            <span
+              style={{
+                fontFamily: "'Sora', sans-serif",
+                fontWeight: 600,
+                fontSize: '22.4px',
+                color: '#1a1f18',
+                lineHeight: '33.6px',
+              }}
+            >
+              aula<span style={{ color: CORAL }}>.</span>
+            </span>
+          </div>
+        </div>
+
+        <h1
+          className="text-center mb-2"
+          style={{
+            fontFamily: "'Sora', sans-serif",
+            fontWeight: 700,
+            fontSize: '26px',
+            lineHeight: '36px',
+            color: '#1a1f18',
+          }}
+        >
+          Elegí tu nombre de usuario
+        </h1>
+        <p
+          className="text-center mb-7"
+          style={{
+            fontFamily: "'Nunito', sans-serif",
+            fontSize: '15px',
+            lineHeight: '22px',
+            color: '#6e6b5e',
+          }}
+        >
+          Hola, {user.displayName ?? user.email}. Solo falta elegir un username único para completar
+          tu registro.
         </p>
 
-        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="username" className="text-sm font-medium text-gray-700">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-2">
+          <div className="flex flex-col">
+            <label
+              htmlFor="username"
+              style={{
+                fontFamily: "'Nunito', sans-serif",
+                fontWeight: 600,
+                fontSize: '14px',
+                color: '#3f4138',
+                lineHeight: '20px',
+                marginBottom: '6px',
+              }}
+            >
               Nombre de usuario
             </label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value)
-                setError('')
-              }}
-              autoComplete="username"
-              aria-describedby={error ? 'username-error' : 'username-hint'}
-              aria-invalid={!!error}
-              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                error ? 'border-red-400 bg-red-50' : 'border-gray-300'
-              }`}
-            />
-            {error ? (
-              <span id="username-error" role="alert" className="text-red-600 text-xs">
-                {error}
-              </span>
-            ) : (
-              <span id="username-hint" className="text-gray-400 text-xs">
-                3-20 caracteres: letras, números o guión bajo
-              </span>
-            )}
+            <div className="relative">
+              <div
+                className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: '#6e6b5e' }}
+              >
+                <AtIcon />
+              </div>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value)
+                  setError('')
+                }}
+                autoComplete="username"
+                placeholder="sofia_m"
+                aria-describedby={error ? 'username-error' : 'username-hint'}
+                aria-invalid={!!error}
+                className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-emerald-500"
+                style={{
+                  border: `1px solid ${error ? '#dc2626' : 'rgba(26, 31, 24, 0.18)'}`,
+                  borderRadius: '14px',
+                  paddingLeft: '40px',
+                  paddingRight: '14px',
+                  paddingTop: '12px',
+                  paddingBottom: '12px',
+                  fontSize: '15px',
+                  fontFamily: "'Nunito', sans-serif",
+                  color: '#1a1f18',
+                  height: '48.5px',
+                }}
+              />
+            </div>
+            <div className="mt-1.5 min-h-[16px]">
+              {error ? (
+                <span
+                  id="username-error"
+                  role="alert"
+                  className="text-xs"
+                  style={{ color: '#dc2626' }}
+                >
+                  {error}
+                </span>
+              ) : (
+                <span id="username-hint" className="text-xs" style={{ color: '#a39e8b' }}>
+                  3-20 caracteres: letras, números o guión bajo
+                </span>
+              )}
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={submitting}
             aria-busy={submitting}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+            className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-opacity"
+            style={{
+              backgroundColor: ACCENT_GREEN,
+              color: '#fff',
+              height: '53.5px',
+              borderRadius: '16px',
+              fontFamily: "'Nunito', sans-serif",
+              fontWeight: 600,
+              fontSize: '17px',
+              lineHeight: '25.5px',
+              boxShadow: '0px 2px 0px #2e5f30',
+              opacity: submitting ? 0.7 : 1,
+              marginTop: '8px',
+            }}
           >
             {submitting ? 'Guardando...' : 'Continuar'}
           </button>
