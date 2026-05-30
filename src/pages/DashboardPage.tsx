@@ -127,8 +127,8 @@ function CreateRoomModal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    globalThis.addEventListener('keydown', onKey)
+    return () => globalThis.removeEventListener('keydown', onKey)
   }, [onClose])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,20 +152,24 @@ function CreateRoomModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(26, 31, 24, 0.45)' }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-room-title"
-      onClick={onClose}
     >
+      <button
+        type="button"
+        aria-label="Cerrar"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+        style={{ backgroundColor: 'rgba(26, 31, 24, 0.45)', border: 'none' }}
+      />
       <div
-        className="w-full max-w-md bg-white p-7"
+        className="relative z-10 w-full max-w-md bg-white p-7"
         style={{
           borderRadius: '20px',
           border: '1px solid rgba(26, 31, 24, 0.12)',
           boxShadow: '0px 12px 40px rgba(31, 64, 35, 0.18)',
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         <h2
           id="create-room-title"
@@ -322,7 +326,7 @@ function initialsOf(value: string): string {
   const parts = value.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'
   if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return (parts[0][0] + parts.at(-1)![0]).toUpperCase()
 }
 
 function FeatureChip({ icon, label }: { icon: React.ReactNode; label: string }) {
@@ -438,7 +442,7 @@ function RoomCard({ room, onOpen }: { room: RoomSummary; onOpen: () => void }) {
 // Hash estable para asignar un color de avatar por sala (sin Math.random).
 function hash(str: string): number {
   let h = 0
-  for (let i = 0; i < str.length; i++) h = (h << 5) - h + str.charCodeAt(i)
+  for (let i = 0; i < str.length; i++) h = (h << 5) - h + (str.codePointAt(i) ?? 0)
   return h
 }
 

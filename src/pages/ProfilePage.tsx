@@ -13,7 +13,7 @@ const DANGER = '#a4422a'
 const INK = '#1a1f18'
 const MUTED = '#6e6b5e'
 
-const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/
+const USERNAME_RE = /^\w{3,20}$/
 
 type Section = 'perfil' | 'peligro'
 
@@ -162,23 +162,27 @@ function DeleteAccountModal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !deleting) onClose()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    globalThis.addEventListener('keydown', onKey)
+    return () => globalThis.removeEventListener('keydown', onKey)
   }, [onClose, deleting])
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(26,31,24,0.45)' }}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="delete-title"
-      onClick={() => !deleting && onClose()}
     >
+      <button
+        type="button"
+        aria-label="Cerrar"
+        onClick={() => !deleting && onClose()}
+        className="absolute inset-0 cursor-default"
+        style={{ backgroundColor: 'rgba(26,31,24,0.45)', border: 'none' }}
+      />
       <div
-        className="w-full max-w-md bg-white p-7"
+        className="relative z-10 w-full max-w-md bg-white p-7"
         style={{ borderRadius: '20px', boxShadow: '0px 12px 40px rgba(31,64,35,0.18)' }}
-        onClick={(e) => e.stopPropagation()}
       >
         <h2 id="delete-title" className="mb-2" style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: '22px', color: '#b91c1c' }}>
           Eliminar tu cuenta
