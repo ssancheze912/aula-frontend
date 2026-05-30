@@ -4,6 +4,8 @@ import {
   loginWithEmail,
   loginWithGoogle,
   registerWithEmail,
+  isInstitutionalEmail,
+  logout,
 } from '../services/authService'
 import {
   isUsernameAvailable,
@@ -327,6 +329,8 @@ export default function AuthPage({ mode }: AuthPageProps) {
     }
 
     if (!/\S+@\S+\.\S+/.test(form.email)) e.email = 'Correo inválido'
+    else if (!isInstitutionalEmail(form.email))
+      e.email = 'Usá tu correo institucional (.edu)'
 
     if (isRegister) {
       const issues: string[] = []
@@ -386,6 +390,11 @@ export default function AuthPage({ mode }: AuthPageProps) {
     setLoading(true)
     try {
       const { user: gUser } = await loginWithGoogle()
+      if (!gUser.email || !isInstitutionalEmail(gUser.email)) {
+        await logout()
+        setErrors({ general: 'Solo se permiten correos institucionales (.edu)' })
+        return
+      }
       const existingProfile = await getUserProfile(gUser.uid)
       navigate(existingProfile ? '/dashboard' : '/register/username', { replace: true })
     } catch (err: unknown) {

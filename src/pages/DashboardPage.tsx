@@ -24,10 +24,20 @@ export default function DashboardPage() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/profile')}
-            className="text-sm text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
             aria-label="Ver perfil"
           >
-            {profile?.firstName} {profile?.lastName}
+            {profile?.avatarUrl && (
+              <img
+                src={profile.avatarUrl}
+                alt=""
+                className="w-8 h-8 rounded-full object-cover border border-gray-200 bg-gray-100"
+                referrerPolicy="no-referrer"
+              />
+            )}
+            <span>
+              {profile?.firstName} {profile?.lastName}
+            </span>
           </button>
           <button
             onClick={handleLogout}
