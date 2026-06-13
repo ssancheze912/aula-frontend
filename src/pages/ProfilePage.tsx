@@ -264,6 +264,39 @@ function SettingsNavItem({
 
 const EMPTY = { firstName: '', lastName: '', username: '', avatarUrl: '', bio: '', link: '', university: '', career: '', year: '', country: '' }
 
+const MAX_AVATAR_PX = 256
+
+// Lee un archivo de imagen del equipo, lo recorta a cuadrado centrado y lo reduce a
+// 256px, devolviendo un data URL JPEG comprimido (~15-30 KB). Así se guarda en el mismo
+// campo avatarUrl sin necesidad de un servicio de almacenamiento aparte.
+function resizeImageToSquareDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('read-error'))
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('decode-error'))
+      img.onload = () => {
+        const side = Math.min(img.width, img.height)
+        const sx = (img.width - side) / 2
+        const sy = (img.height - side) / 2
+        const canvas = document.createElement('canvas')
+        canvas.width = MAX_AVATAR_PX
+        canvas.height = MAX_AVATAR_PX
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('canvas-error'))
+          return
+        }
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, MAX_AVATAR_PX, MAX_AVATAR_PX)
+        resolve(canvas.toDataURL('image/jpeg', 0.85))
+      }
+      img.src = reader.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function ProfilePage() {
   const { user, profile, loading, refreshProfile } = useAuth()
   const navigate = useNavigate()
@@ -273,7 +306,8 @@ export default function ProfilePage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [showAvatarInput, setShowAvatarInput] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [showDelete, setShowDelete] = useState(false)
@@ -373,6 +407,27 @@ export default function ProfilePage() {
     }
   }
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permite volver a elegir el mismo archivo
+    if (!file) return
+    setAvatarError('')
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Seleccioná un archivo de imagen.')
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setAvatarError('La imagen es muy grande (máximo 8 MB).')
+      return
+    }
+    try {
+      const dataUrl = await resizeImageToSquareDataUrl(file)
+      setField('avatarUrl')(dataUrl)
+    } catch {
+      setAvatarError('No se pudo procesar la imagen. Probá con otra.')
+    }
+  }
+
   const initials =
     (form.firstName.trim()[0] ?? '?').toUpperCase() + (form.lastName.trim()[0] ?? '').toUpperCase()
   const fullName = `${form.firstName} ${form.lastName}`.trim() || 'Tu perfil'
@@ -424,23 +479,51 @@ export default function ProfilePage() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setShowAvatarInput((s) => !s)}
-                    aria-label="Cambiar avatar"
-                    aria-expanded={showAvatarInput}
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Cambiar avatar: subir imagen desde el equipo"
                     className="absolute flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
                     style={{ width: '32px', height: '32px', right: 0, bottom: 0, backgroundColor: ACCENT_GREEN, color: '#fff', borderRadius: '9999px', boxShadow: '0px 4px 3px rgba(0,0,0,0.1)' }}
                   >
                     <CameraIcon />
                   </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarChange}
+                  />
                 </div>
                 <div className="min-w-0">
                   <p className="truncate" style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: '20px', color: INK }}>{fullName}</p>
                   <p className="truncate" style={{ fontSize: '14px', color: MUTED }}>{subtitle}</p>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="focus:outline-none focus:underline"
+                      style={{ fontSize: '13px', fontWeight: 700, color: ACCENT_GREEN }}
+                    >
+                      Subir imagen
+                    </button>
+                    {form.avatarUrl && (
+                      <button
+                        type="button"
+                        onClick={() => { setField('avatarUrl')(''); setAvatarError('') }}
+                        className="focus:outline-none focus:underline"
+                        style={{ fontSize: '13px', fontWeight: 600, color: MUTED }}
+                      >
+                        Quitar foto
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {showAvatarInput && (
-                <Field id="avatarUrl" label="URL del avatar" value={form.avatarUrl} onChange={setField('avatarUrl')} hint="Pegá un enlace de imagen, o dejalo vacío para usar tus iniciales." />
+              {avatarError && (
+                <div role="alert" className="p-3 rounded-lg text-sm" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c' }}>
+                  {avatarError}
+                </div>
               )}
 
               {errors.general && (
