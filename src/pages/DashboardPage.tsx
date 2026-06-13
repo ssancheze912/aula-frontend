@@ -2,7 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { logout } from '../services/authService'
-import { createRoom, getMyRooms, type RoomSummary } from '../services/roomService'
+import {
+  createRoom,
+  getMyRooms,
+  getRoom,
+  updateRoom,
+  deleteRoom,
+  type RoomSummary,
+} from '../services/roomService'
+import { ApiError } from '../services/api'
 import AulaLogoMark from '../components/AulaLogoMark'
 
 const CREAM = '#fbf7ee'
@@ -262,6 +270,436 @@ function CreateRoomModal({
   )
 }
 
+/* ------------------------- Modal: unirse por ID (US-08) ------------------- */
+
+function JoinRoomModal({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate()
+  const [id, setId] = useState('')
+  const [error, setError] = useState('')
+  const [checking, setChecking] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    globalThis.addEventListener('keydown', onKey)
+    return () => globalThis.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = id.trim()
+    if (!trimmed) {
+      setError('Ingresá el ID de la sala.')
+      return
+    }
+    setChecking(true)
+    setError('')
+    try {
+      // Valida la existencia antes de navegar (US-08).
+      await getRoom(trimmed)
+      navigate(`/room/${trimmed}`)
+    } catch (err) {
+      setChecking(false)
+      setError(
+        err instanceof ApiError && err.status === 404
+          ? 'Sala no encontrada. Verificá el ID.'
+          : 'No se pudo validar la sala. Intentá de nuevo.'
+      )
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="join-room-title"
+    >
+      <button
+        type="button"
+        aria-label="Cerrar"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+        style={{ backgroundColor: 'rgba(26, 31, 24, 0.45)', border: 'none' }}
+      />
+      <div
+        className="relative z-10 w-full max-w-md bg-white p-7"
+        style={{
+          borderRadius: '20px',
+          border: '1px solid rgba(26, 31, 24, 0.12)',
+          boxShadow: '0px 12px 40px rgba(31, 64, 35, 0.18)',
+        }}
+      >
+        <h2
+          id="join-room-title"
+          className="mb-2"
+          style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: '22px', color: INK }}
+        >
+          Unirse a una sala
+        </h2>
+        <p className="mb-5" style={{ fontSize: '14px', color: MUTED }}>
+          Pegá el ID que te compartió el anfitrión para entrar como invitado.
+        </p>
+
+        <form onSubmit={handleSubmit} noValidate>
+          <label
+            htmlFor="join-room-id"
+            style={{ display: 'block', fontWeight: 600, fontSize: '14px', color: '#3f4138', marginBottom: '6px' }}
+          >
+            ID de la sala
+          </label>
+          <input
+            id="join-room-id"
+            ref={inputRef}
+            type="text"
+            value={id}
+            onChange={(e) => {
+              setId(e.target.value)
+              setError('')
+            }}
+            placeholder="p. ej. 8Kd2f9aZ..."
+            aria-invalid={!!error}
+            aria-describedby={error ? 'join-room-error' : undefined}
+            className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-emerald-500"
+            style={{
+              border: `1px solid ${error ? '#dc2626' : 'rgba(26, 31, 24, 0.18)'}`,
+              borderRadius: '14px',
+              padding: '12px 14px',
+              fontSize: '15px',
+              color: INK,
+              height: '48.5px',
+            }}
+          />
+          <div className="mt-1.5 min-h-[16px]">
+            {error && (
+              <span id="join-room-error" role="alert" className="text-xs" style={{ color: '#dc2626' }}>
+                {error}
+              </span>
+            )}
+          </div>
+
+          <div className="flex gap-3 mt-5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+              style={{
+                backgroundColor: '#fff',
+                border: '1px solid rgba(26, 31, 24, 0.18)',
+                borderRadius: '14px',
+                height: '48px',
+                fontWeight: 600,
+                fontSize: '15px',
+                color: '#3f4138',
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={checking}
+              aria-busy={checking}
+              className="flex-1 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-opacity"
+              style={{
+                backgroundColor: ACCENT_GREEN,
+                color: '#fff',
+                borderRadius: '14px',
+                height: '48px',
+                fontWeight: 600,
+                fontSize: '15px',
+                boxShadow: `0px 2px 0px ${DARK_GREEN}`,
+                opacity: checking ? 0.7 : 1,
+              }}
+            >
+              {checking ? 'Buscando...' : 'Entrar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/* ----------------------- Modal: editar nombre (US-07) --------------------- */
+
+function EditRoomModal({
+  room,
+  onClose,
+  onSaved,
+}: {
+  room: RoomSummary
+  onClose: () => void
+  onSaved: (room: RoomSummary) => void
+}) {
+  const [name, setName] = useState(room.name)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    globalThis.addEventListener('keydown', onKey)
+    return () => globalThis.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = name.trim()
+    if (trimmed.length < NAME_MIN || trimmed.length > NAME_MAX) {
+      setError(`El nombre debe tener entre ${NAME_MIN} y ${NAME_MAX} caracteres`)
+      return
+    }
+    setSubmitting(true)
+    setError('')
+    try {
+      const updated = await updateRoom(room.id, trimmed)
+      onSaved(updated)
+    } catch {
+      setError('No se pudo guardar el cambio. Intentá de nuevo.')
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-room-title"
+    >
+      <button
+        type="button"
+        aria-label="Cerrar"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+        style={{ backgroundColor: 'rgba(26, 31, 24, 0.45)', border: 'none' }}
+      />
+      <div
+        className="relative z-10 w-full max-w-md bg-white p-7"
+        style={{
+          borderRadius: '20px',
+          border: '1px solid rgba(26, 31, 24, 0.12)',
+          boxShadow: '0px 12px 40px rgba(31, 64, 35, 0.18)',
+        }}
+      >
+        <h2
+          id="edit-room-title"
+          className="mb-2"
+          style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: '22px', color: INK }}
+        >
+          Editar sala
+        </h2>
+        <p className="mb-5" style={{ fontSize: '14px', color: MUTED }}>
+          Cambiá el nombre de tu sala de estudio.
+        </p>
+
+        <form onSubmit={handleSubmit} noValidate>
+          <label
+            htmlFor="edit-room-name"
+            style={{ display: 'block', fontWeight: 600, fontSize: '14px', color: '#3f4138', marginBottom: '6px' }}
+          >
+            Nombre de la sala
+          </label>
+          <input
+            id="edit-room-name"
+            ref={inputRef}
+            type="text"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              setError('')
+            }}
+            aria-invalid={!!error}
+            aria-describedby={error ? 'edit-room-error' : undefined}
+            maxLength={NAME_MAX}
+            className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-emerald-500"
+            style={{
+              border: `1px solid ${error ? '#dc2626' : 'rgba(26, 31, 24, 0.18)'}`,
+              borderRadius: '14px',
+              padding: '12px 14px',
+              fontSize: '15px',
+              color: INK,
+              height: '48.5px',
+            }}
+          />
+          <div className="mt-1.5 min-h-[16px]">
+            {error && (
+              <span id="edit-room-error" role="alert" className="text-xs" style={{ color: '#dc2626' }}>
+                {error}
+              </span>
+            )}
+          </div>
+
+          <div className="flex gap-3 mt-5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+              style={{
+                backgroundColor: '#fff',
+                border: '1px solid rgba(26, 31, 24, 0.18)',
+                borderRadius: '14px',
+                height: '48px',
+                fontWeight: 600,
+                fontSize: '15px',
+                color: '#3f4138',
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              aria-busy={submitting}
+              className="flex-1 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-opacity"
+              style={{
+                backgroundColor: ACCENT_GREEN,
+                color: '#fff',
+                borderRadius: '14px',
+                height: '48px',
+                fontWeight: 600,
+                fontSize: '15px',
+                boxShadow: `0px 2px 0px ${DARK_GREEN}`,
+                opacity: submitting ? 0.7 : 1,
+              }}
+            >
+              {submitting ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/* --------------------- Modal: eliminar sala (US-07) ----------------------- */
+
+function DeleteRoomModal({
+  room,
+  onClose,
+  onDeleted,
+}: {
+  room: RoomSummary
+  onClose: () => void
+  onDeleted: (id: string) => void
+}) {
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    cancelRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    globalThis.addEventListener('keydown', onKey)
+    return () => globalThis.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const handleDelete = async () => {
+    setSubmitting(true)
+    setError('')
+    try {
+      await deleteRoom(room.id)
+      onDeleted(room.id)
+    } catch {
+      setError('No se pudo eliminar la sala. Intentá de nuevo.')
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-room-title"
+    >
+      <button
+        type="button"
+        aria-label="Cerrar"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+        style={{ backgroundColor: 'rgba(26, 31, 24, 0.45)', border: 'none' }}
+      />
+      <div
+        className="relative z-10 w-full max-w-md bg-white p-7"
+        style={{
+          borderRadius: '20px',
+          border: '1px solid rgba(26, 31, 24, 0.12)',
+          boxShadow: '0px 12px 40px rgba(31, 64, 35, 0.18)',
+        }}
+      >
+        <h2
+          id="delete-room-title"
+          className="mb-2"
+          style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: '22px', color: INK }}
+        >
+          Eliminar sala
+        </h2>
+        <p className="mb-5" style={{ fontSize: '14px', color: MUTED }}>
+          ¿Seguro que querés eliminar <strong style={{ color: INK }}>{room.name}</strong>? Se borrará
+          también su historial de chat. Esta acción no se puede deshacer.
+        </p>
+
+        <div className="min-h-[16px] mb-3">
+          {error && (
+            <span role="alert" className="text-xs" style={{ color: '#dc2626' }}>
+              {error}
+            </span>
+          )}
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            ref={cancelRef}
+            type="button"
+            onClick={onClose}
+            className="flex-1 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+            style={{
+              backgroundColor: '#fff',
+              border: '1px solid rgba(26, 31, 24, 0.18)',
+              borderRadius: '14px',
+              height: '48px',
+              fontWeight: 600,
+              fontSize: '15px',
+              color: '#3f4138',
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={submitting}
+            aria-busy={submitting}
+            className="flex-1 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-opacity"
+            style={{
+              backgroundColor: CORAL,
+              color: '#fff',
+              borderRadius: '14px',
+              height: '48px',
+              fontWeight: 600,
+              fontSize: '15px',
+              boxShadow: '0px 2px 0px #9c3d22',
+              opacity: submitting ? 0.7 : 1,
+            }}
+          >
+            {submitting ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ------------------------------ Sidebar items ----------------------------- */
 
 function NavItem({
@@ -348,9 +786,38 @@ function FeatureChip({ icon, label }: { icon: React.ReactNode; label: string }) 
   )
 }
 
-function RoomCard({ room, onOpen }: { room: RoomSummary; onOpen: () => void }) {
+function RoomCard({
+  room,
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  room: RoomSummary
+  onOpen: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
   const host = room.hostUsername || 'anfitrión'
   const avatarColor = AVATAR_COLORS[Math.abs(hash(room.id)) % AVATAR_COLORS.length]
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Cerrar el menú al hacer clic fuera o presionar Escape.
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    globalThis.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      globalThis.removeEventListener('keydown', onKey)
+    }
+  }, [menuOpen])
 
   return (
     <div
@@ -374,15 +841,57 @@ function RoomCard({ room, onOpen }: { room: RoomSummary; onOpen: () => void }) {
         >
           Inactiva
         </span>
-        <button
-          type="button"
-          aria-label={`Opciones de ${room.name}`}
-          className="rounded-[10px] p-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          style={{ color: MUTED }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <DotsIcon />
-        </button>
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            aria-label={`Opciones de ${room.name}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            className="rounded-[10px] p-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            style={{ color: MUTED }}
+            onClick={() => setMenuOpen((o) => !o)}
+          >
+            <DotsIcon />
+          </button>
+          {menuOpen && (
+            <div
+              role="menu"
+              aria-label={`Acciones de ${room.name}`}
+              className="absolute right-0 z-20 mt-1 bg-white overflow-hidden"
+              style={{
+                minWidth: '160px',
+                borderRadius: '12px',
+                border: '1px solid rgba(26,31,24,0.12)',
+                boxShadow: '0px 10px 28px rgba(31,64,35,0.16)',
+              }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onEdit()
+                }}
+                className="w-full text-left focus:outline-none focus:bg-emerald-50 hover:bg-emerald-50"
+                style={{ padding: '10px 14px', fontSize: '14px', fontWeight: 600, color: INK }}
+              >
+                Editar nombre
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onDelete()
+                }}
+                className="w-full text-left focus:outline-none focus:bg-red-50 hover:bg-red-50"
+                style={{ padding: '10px 14px', fontSize: '14px', fontWeight: 600, color: CORAL }}
+              >
+                Eliminar sala
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <h3
@@ -472,6 +981,9 @@ export default function DashboardPage() {
   const [loadingRooms, setLoadingRooms] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [showJoin, setShowJoin] = useState(false)
+  const [editing, setEditing] = useState<RoomSummary | null>(null)
+  const [deleting, setDeleting] = useState<RoomSummary | null>(null)
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<TabKey>('todas')
 
@@ -642,6 +1154,23 @@ export default function DashboardPage() {
               </div>
               <button
                 type="button"
+                onClick={() => setShowJoin(true)}
+                className="flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                style={{
+                  backgroundColor: '#fff',
+                  color: DARK_GREEN,
+                  border: `1px solid ${ACCENT_GREEN}`,
+                  borderRadius: '14px',
+                  padding: '10px 18px',
+                  fontFamily: "'Nunito', sans-serif",
+                  fontWeight: 600,
+                  fontSize: '15px',
+                }}
+              >
+                Unirse por ID
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowCreate(true)}
                 className="flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
                 style={{
@@ -718,7 +1247,13 @@ export default function DashboardPage() {
           ) : (
             <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
               {filtered.map((room) => (
-                <RoomCard key={room.id} room={room} onOpen={() => navigate(`/room/${room.id}`)} />
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  onOpen={() => navigate(`/room/${room.id}`)}
+                  onEdit={() => setEditing(room)}
+                  onDelete={() => setDeleting(room)}
+                />
               ))}
             </div>
           )}
@@ -727,6 +1262,30 @@ export default function DashboardPage() {
 
       {showCreate && (
         <CreateRoomModal onClose={() => setShowCreate(false)} onCreated={(room) => navigate(`/room/${room.id}`)} />
+      )}
+
+      {showJoin && <JoinRoomModal onClose={() => setShowJoin(false)} />}
+
+      {editing && (
+        <EditRoomModal
+          room={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setRooms((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+            setEditing(null)
+          }}
+        />
+      )}
+
+      {deleting && (
+        <DeleteRoomModal
+          room={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={(id) => {
+            setRooms((prev) => prev.filter((r) => r.id !== id))
+            setDeleting(null)
+          }}
+        />
       )}
     </main>
   )
