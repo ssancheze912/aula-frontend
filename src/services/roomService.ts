@@ -25,3 +25,16 @@ export async function getMyRooms(): Promise<RoomSummary[]> {
 export async function getRoom(id: string): Promise<RoomSummary> {
   return api<RoomSummary>(`/rooms/${encodeURIComponent(id)}`)
 }
+
+/** Renombra una sala (US-07). Solo el anfitrión está autorizado (403 en caso contrario). */
+export async function updateRoom(id: string, name: string): Promise<RoomSummary> {
+  return api<RoomSummary>(`/rooms/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: { name },
+  })
+}
+
+/** Elimina una sala y su historial de chat (US-07). Solo el anfitrión. */
+export async function deleteRoom(id: string): Promise<void> {
+  await api(`/rooms/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
