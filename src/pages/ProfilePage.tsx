@@ -517,6 +517,9 @@ export default function ProfilePage() {
                       </button>
                     )}
                   </div>
+                  <p className="mt-1" style={{ fontSize: '12px', color: '#a39e8b' }}>
+                    JPG o PNG · máximo 8 MB · se recorta a un cuadrado de 256 px.
+                  </p>
                 </div>
               </div>
 
