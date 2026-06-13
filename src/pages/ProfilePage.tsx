@@ -461,12 +461,6 @@ export default function ProfilePage() {
                   <Field id="lastName" label="Apellido" value={form.lastName} onChange={setField('lastName')} error={errors.lastName} />
                   <Field id="username" label="Nombre de usuario" icon={<AtIcon />} value={form.username} onChange={setField('username')} error={errors.username} hint="3-20 caracteres: letras, números o _" />
                   <Field id="email" label="Correo electrónico" value={profile.email} disabled hint="El correo no se puede modificar." />
-                  <div className="sm:col-span-2">
-                    <Field id="bio" label="Bio" value={form.bio} onChange={setField('bio')} placeholder="Contanos algo sobre vos ✨" />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Field id="link" label="Enlace personal" value={form.link} onChange={setField('link')} placeholder="tusitio.github.io" />
-                  </div>
                 </div>
               </Card>
 
@@ -475,7 +469,6 @@ export default function ProfilePage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Field id="university" label="Universidad" value={form.university} onChange={setField('university')} placeholder="Universidad del Valle" />
                   <Field id="career" label="Carrera" value={form.career} onChange={setField('career')} placeholder="Ingeniería de Sistemas" />
-                  <Field id="year" label="Año en curso" value={form.year} onChange={setField('year')} placeholder="3er año" />
                   <Field id="country" label="País" value={form.country} onChange={setField('country')} placeholder="Colombia" />
                 </div>
               </Card>
