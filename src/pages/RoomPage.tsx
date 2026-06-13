@@ -131,11 +131,24 @@ export default function RoomPage() {
   const [draft, setDraft] = useState('')
   const [connected, setConnected] = useState(false)
   const [chatError, setChatError] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const socketRef = useRef<Socket | null>(null)
   const listEndRef = useRef<HTMLDivElement>(null)
 
   const isHost = !!user && !!room && user.uid === room.hostId
+
+  // Copiar el ID de la sala al portapapeles (para compartirlo e invitar por ID — US-08).
+  const handleCopyId = async () => {
+    if (!roomId) return
+    try {
+      await navigator.clipboard.writeText(roomId)
+      setCopied(true)
+      globalThis.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Sin permiso de portapapeles (p. ej. contexto inseguro): no rompemos la UI.
+    }
+  }
 
   // 1. Cargar metadatos de la sala (valida existencia — US-08).
   useEffect(() => {
@@ -316,6 +329,36 @@ export default function RoomPage() {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          {/* Copiar ID de la sala (para invitar por ID) */}
+          <button
+            type="button"
+            onClick={handleCopyId}
+            aria-label="Copiar ID de la sala al portapapeles"
+            className="inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-emerald-500"
+            style={{
+              backgroundColor: '#fff',
+              border: `1px solid ${copied ? ACCENT_GREEN : '#d7c59a'}`,
+              borderRadius: '10px',
+              padding: '6px 12px',
+              fontFamily: "'Nunito', sans-serif",
+              fontWeight: 700,
+              fontSize: '13px',
+              color: copied ? DARK_GREEN : INK,
+            }}
+          >
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              {copied ? (
+                <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              ) : (
+                <>
+                  <rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="M5 15V5a2 2 0 0 1 2-2h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </>
+              )}
+            </svg>
+            {copied ? '¡Copiado!' : 'Copiar ID'}
+          </button>
+
           {/* Indicador de conexión */}
           <span
             className="inline-flex items-center gap-1.5"
