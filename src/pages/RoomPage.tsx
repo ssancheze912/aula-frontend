@@ -333,9 +333,11 @@ export default function RoomPage() {
     const removePeer = (peerId: string) => {
       const pc = peers.get(peerId)
       if (pc) {
+        console.log('[RTC] conexión limpiada', { peerId })
         pc.onicecandidate = null
         pc.ontrack = null
         pc.onconnectionstatechange = null
+        pc.oniceconnectionstatechange = null
         pc.close()
       }
       peers.delete(peerId)
@@ -370,16 +372,25 @@ export default function RoomPage() {
       if (existing) return existing
 
       const pc = new RTCPeerConnection({ iceServers: iceServersRef.current })
+      console.log('[RTC] peer connection creada', { peerId })
       localStreamRef.current?.getTracks().forEach((track) => pc.addTrack(track, localStreamRef.current!))
 
       pc.onicecandidate = (e) => {
-        if (e.candidate) socket.emit('rtc:ice', { to: peerId, candidate: e.candidate })
+        if (e.candidate) {
+          console.log('[RTC] ICE candidate enviado', { to: peerId })
+          socket.emit('rtc:ice', { to: peerId, candidate: e.candidate })
+        }
       }
       pc.ontrack = (e) => {
+        console.log('[RTC] ontrack recibido', { from: peerId })
         upsertRemote(peerId, { stream: e.streams[0] ?? null })
       }
       pc.onconnectionstatechange = () => {
+        console.log('[RTC] connectionState', { peerId, state: pc.connectionState })
         if (pc.connectionState === 'failed' || pc.connectionState === 'closed') removePeer(peerId)
+      }
+      pc.oniceconnectionstatechange = () => {
+        console.log('[RTC] iceConnectionState', { peerId, state: pc.iceConnectionState })
       }
 
       peers.set(peerId, pc)
@@ -421,11 +432,13 @@ export default function RoomPage() {
     socket.on(
       'rtc:peer_ready',
       ({ socketId, userId, username, avatarUrl }: { socketId: string; userId: string; username: string; avatarUrl?: string }) => {
+        console.log('[RTC] peer ready recibido', { from: socketId })
         peerMeta.set(socketId, { userId, username, avatarUrl: avatarUrl ?? '' })
         const pc = createPeer(socketId)
         pc.createOffer()
           .then((offer) => pc.setLocalDescription(offer))
           .then(() => {
+            console.log('[RTC] offer enviado', { to: socketId })
             socket.emit('rtc:offer', {
               to: socketId,
               offer: pc.localDescription,
@@ -441,6 +454,7 @@ export default function RoomPage() {
     socket.on(
       'rtc:offer',
       async ({ from, offer, userId, username, avatarUrl }: { from: string; offer: RTCSessionDescriptionInit; userId?: string; username?: string; avatarUrl?: string }) => {
+        console.log('[RTC] offer recibido', { from })
         if (userId) peerMeta.set(from, { userId, username: username ?? 'Invitado', avatarUrl: avatarUrl ?? '' })
         const pc = createPeer(from)
         const polite = (socket.id ?? '') > from
@@ -452,6 +466,7 @@ export default function RoomPage() {
           await flushIce(from, pc)
           const answer = await pc.createAnswer()
           await pc.setLocalDescription(answer)
+          console.log('[RTC] answer enviado', { to: from })
           socket.emit('rtc:answer', {
             to: from,
             answer: pc.localDescription,
@@ -468,6 +483,7 @@ export default function RoomPage() {
     socket.on(
       'rtc:answer',
       async ({ from, answer }: { from: string; answer: RTCSessionDescriptionInit }) => {
+        console.log('[RTC] answer recibido', { from })
         const pc = peers.get(from)
         if (!pc) return
         try {
@@ -482,6 +498,7 @@ export default function RoomPage() {
     socket.on(
       'rtc:ice',
       ({ from, candidate }: { from: string; candidate: RTCIceCandidateInit }) => {
+        console.log('[RTC] ICE candidate recibido', { from })
         const pc = peers.get(from)
         if (pc?.remoteDescription?.type) {
           pc.addIceCandidate(candidate).catch(() => {})
@@ -515,13 +532,15 @@ export default function RoomPage() {
       try {
         const audio = await navigator.mediaDevices.getUserMedia({ audio: true })
         tracks.push(...audio.getAudioTracks())
-      } catch {
+      } catch (error) {
+        console.error('[RTC] Error getUserMedia', error)
         micDenied = true
       }
       try {
         const video = await navigator.mediaDevices.getUserMedia({ video: true })
         tracks.push(...video.getVideoTracks())
-      } catch {
+      } catch (error) {
+        console.error('[RTC] Error getUserMedia', error)
         camDenied = true
       }
       const stream = tracks.length > 0 ? new MediaStream(tracks) : null
@@ -547,6 +566,7 @@ export default function RoomPage() {
       setCamOn(!camDenied)
       localStreamRef.current = stream
       setLocalStream(stream)
+      console.log('[RTC] ready emitido', { roomId, socketId: socket.id })
       socket.emit('rtc:ready', {
         roomId,
         userId: user.uid,
@@ -561,10 +581,12 @@ export default function RoomPage() {
       socket.emit('room:leave', { roomId, userId: user.uid })
       socket.off()
       socket.disconnect()
-      peers.forEach((pc) => {
+      peers.forEach((pc, peerId) => {
+        console.log('[RTC] conexión limpiada', { peerId })
         pc.onicecandidate = null
         pc.ontrack = null
         pc.onconnectionstatechange = null
+        pc.oniceconnectionstatechange = null
         pc.close()
       })
       peers.clear()
