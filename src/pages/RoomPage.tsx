@@ -128,6 +128,7 @@ interface RemotePeer {
   stream: MediaStream | null
   muted: boolean
   cameraOff: boolean
+  screenSharing: boolean
 }
 
 /* ----------------------------- Tile de video ------------------------------ */
@@ -137,11 +138,47 @@ function MicOffBadge() {
     <span
       className="inline-flex items-center justify-center rounded-full"
       style={{ width: '22px', height: '22px', backgroundColor: CORAL, color: '#fff' }}
+      role="img"
+      aria-label="Micrófono silenciado"
       title="Micrófono silenciado"
     >
       <svg width={13} height={13} viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M9 9v3a3 3 0 0 0 5 2.1M15 11V6a3 3 0 0 0-6 0v1M5 11a7 7 0 0 0 11.5 5.4M19 11M12 19v3M4 3l16 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
+    </span>
+  )
+}
+
+function CamOffBadge() {
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full"
+      style={{ width: '22px', height: '22px', backgroundColor: CORAL, color: '#fff' }}
+      role="img"
+      aria-label="Cámara apagada"
+      title="Cámara apagada"
+    >
+      <svg width={13} height={13} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M16 10l5-3v10l-5-3M3 6h11v12H3zM4 3l16 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  )
+}
+
+function ScreenShareBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full"
+      style={{ backgroundColor: DARK_GREEN, color: '#fff', fontSize: '11px', fontWeight: 700, padding: '3px 8px' }}
+      role="img"
+      aria-label="Compartiendo pantalla"
+      title="Compartiendo pantalla"
+    >
+      <svg width={13} height={13} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M9 21h6M12 17v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+      Compartiendo
     </span>
   )
 }
@@ -154,6 +191,7 @@ function VideoTile({
   muted,
   isLocal,
   label,
+  screenSharing = false,
 }: {
   stream: MediaStream | null
   username: string
@@ -162,6 +200,7 @@ function VideoTile({
   muted: boolean
   isLocal: boolean
   label: string
+  screenSharing?: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -170,7 +209,10 @@ function VideoTile({
     if (el && stream && el.srcObject !== stream) el.srcObject = stream
   }, [stream])
 
-  const showVideo = !!stream && !cameraOff
+  // Al compartir pantalla siempre mostramos el video (aunque la cámara esté apagada);
+  // y no lo reflejamos como el espejo de la cámara propia.
+  const showVideo = !!stream && (screenSharing || !cameraOff)
+  const mirror = isLocal && !screenSharing
 
   return (
     <div
@@ -178,13 +220,14 @@ function VideoTile({
       style={{ backgroundColor: '#11150f', aspectRatio: '4 / 3', boxShadow: '0px 4px 10px rgba(26,31,24,0.18)' }}
     >
       {/* El <video> se mantiene montado (aunque oculto) para no perder la pista al alternar cámara. */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- video en vivo de WebRTC, sin pista de subtítulos */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted={isLocal}
         className="w-full h-full object-cover"
-        style={{ display: showVideo ? 'block' : 'none', transform: isLocal ? 'scaleX(-1)' : undefined }}
+        style={{ display: showVideo ? 'block' : 'none', transform: mirror ? 'scaleX(-1)' : undefined }}
       />
       {!showVideo && (
         <div className="absolute inset-0 flex items-center justify-center">
@@ -192,7 +235,14 @@ function VideoTile({
         </div>
       )}
 
-      {/* Etiqueta de nombre + estado de micrófono */}
+      {/* Indicador de compartición de pantalla (US-14), visible en todas las pantallas */}
+      {screenSharing && (
+        <div className="absolute left-2 top-2" style={{ pointerEvents: 'none' }}>
+          <ScreenShareBadge />
+        </div>
+      )}
+
+      {/* Etiqueta de nombre + estado de micrófono/cámara (US-13) */}
       <div
         className="absolute left-2 bottom-2 right-2 flex items-center justify-between gap-2"
         style={{ pointerEvents: 'none' }}
@@ -211,7 +261,10 @@ function VideoTile({
         >
           {label}
         </span>
-        {muted && <MicOffBadge />}
+        <span className="inline-flex items-center gap-1.5">
+          {muted && <MicOffBadge />}
+          {cameraOff && !screenSharing && <CamOffBadge />}
+        </span>
       </div>
     </div>
   )
@@ -281,6 +334,9 @@ export default function RoomPage() {
   const [mediaError, setMediaError] = useState('')
   const [micOn, setMicOn] = useState(true)
   const [camOn, setCamOn] = useState(true)
+  // Compartir pantalla (US-14)
+  const [sharing, setSharing] = useState(false)
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
 
   const socketRef = useRef<Socket | null>(null)
   const listEndRef = useRef<HTMLDivElement>(null)
@@ -289,6 +345,11 @@ export default function RoomPage() {
   const pendingIceRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map())
   const localStreamRef = useRef<MediaStream | null>(null)
   const iceServersRef = useRef<RTCIceServer[]>([{ urls: 'stun:stun.l.google.com:19302' }])
+  // Sender de video de cada par (para sustituir cámara↔pantalla con replaceTrack) y la
+  // pista de cámara original, que recuperamos al dejar de compartir (US-14).
+  const videoSendersRef = useRef<Map<string, RTCRtpSender>>(new Map())
+  const cameraTrackRef = useRef<MediaStreamTrack | null>(null)
+  const screenStreamRef = useRef<MediaStream | null>(null)
 
   const isHost = !!user && !!room && user.uid === room.hostId
 
@@ -329,6 +390,7 @@ export default function RoomPage() {
     const peers = peersRef.current
     const peerMeta = peerMetaRef.current
     const pendingIce = pendingIceRef.current
+    const videoSenders = videoSendersRef.current
 
     const removePeer = (peerId: string) => {
       const pc = peers.get(peerId)
@@ -341,6 +403,7 @@ export default function RoomPage() {
       peers.delete(peerId)
       peerMeta.delete(peerId)
       pendingIce.delete(peerId)
+      videoSenders.delete(peerId)
       setRemotePeers((prev) => {
         if (!(peerId in prev)) return prev
         const next = { ...prev }
@@ -360,6 +423,7 @@ export default function RoomPage() {
           stream: null,
           muted: false,
           cameraOff: false,
+          screenSharing: false,
         }
         return { ...prev, [peerId]: { ...base, ...patch } }
       })
@@ -370,7 +434,22 @@ export default function RoomPage() {
       if (existing) return existing
 
       const pc = new RTCPeerConnection({ iceServers: iceServersRef.current })
-      localStreamRef.current?.getTracks().forEach((track) => pc.addTrack(track, localStreamRef.current!))
+      const stream = localStreamRef.current
+      let videoSender: RTCRtpSender | null = null
+      if (stream) {
+        stream.getTracks().forEach((track) => {
+          const sender = pc.addTrack(track, stream)
+          if (track.kind === 'video') videoSender = sender
+        })
+      }
+      // Reservamos un sender de video aunque no haya cámara, para poder compartir
+      // pantalla con replaceTrack sin renegociar (US-14).
+      const sender: RTCRtpSender =
+        videoSender ?? pc.addTransceiver('video', { direction: 'sendrecv' }).sender
+      videoSenders.set(peerId, sender)
+      // Si ya estamos compartiendo cuando entra un nuevo par, mándale la pantalla.
+      const screenTrack = screenStreamRef.current?.getVideoTracks()[0]
+      if (screenTrack) sender.replaceTrack(screenTrack).catch(() => {})
 
       pc.onicecandidate = (e) => {
         if (e.candidate) socket.emit('rtc:ice', { to: peerId, candidate: e.candidate })
@@ -495,9 +574,10 @@ export default function RoomPage() {
 
     socket.on(
       'rtc:media_state_update',
-      ({ userId, isMuted, isCameraOff }: { userId: string; isMuted: boolean; isCameraOff: boolean }) => {
+      ({ userId, isMuted, isCameraOff, isScreenSharing }: { userId: string; isMuted: boolean; isCameraOff: boolean; isScreenSharing?: boolean }) => {
         for (const [peerId, meta] of peerMeta.entries()) {
-          if (meta.userId === userId) upsertRemote(peerId, { muted: isMuted, cameraOff: isCameraOff })
+          if (meta.userId === userId)
+            upsertRemote(peerId, { muted: isMuted, cameraOff: isCameraOff, screenSharing: !!isScreenSharing })
         }
       }
     )
@@ -546,6 +626,7 @@ export default function RoomPage() {
       setMicOn(!micDenied)
       setCamOn(!camDenied)
       localStreamRef.current = stream
+      cameraTrackRef.current = stream?.getVideoTracks()[0] ?? null
       setLocalStream(stream)
       socket.emit('rtc:ready', {
         roomId,
@@ -553,7 +634,17 @@ export default function RoomPage() {
         username: profile.username,
         avatarUrl: profile.avatarUrl,
       })
-      if (micDenied || camDenied) emitMediaState(!micDenied, !camDenied)
+      // Anunciamos el estado real (emitimos directo aquí porque emitMediaState se
+      // declara más abajo en el componente y este efecto no debe depender de él).
+      if (micDenied || camDenied) {
+        socket.emit('rtc:media_state', {
+          roomId,
+          userId: user.uid,
+          isMuted: micDenied,
+          isCameraOff: camDenied,
+          isScreenSharing: false,
+        })
+      }
     })()
 
     return () => {
@@ -570,11 +661,17 @@ export default function RoomPage() {
       peers.clear()
       peerMeta.clear()
       pendingIce.clear()
+      videoSenders.clear()
       localStreamRef.current?.getTracks().forEach((t) => t.stop())
       localStreamRef.current = null
+      screenStreamRef.current?.getTracks().forEach((t) => t.stop())
+      screenStreamRef.current = null
+      cameraTrackRef.current = null
       socketRef.current = null
       setRemotePeers({})
       setLocalStream(null)
+      setScreenStream(null)
+      setSharing(false)
     }
   }, [loadState, roomId, user, profile])
 
@@ -609,13 +706,13 @@ export default function RoomPage() {
     }
   }
 
-  const emitMediaState = (mic: boolean, cam: boolean) => {
+  const emitMediaState = (mic: boolean, cam: boolean, share: boolean) => {
     socketRef.current?.emit('rtc:media_state', {
       roomId,
       userId: user?.uid,
       isMuted: !mic,
       isCameraOff: !cam,
-      isScreenSharing: false,
+      isScreenSharing: share,
     })
   }
 
@@ -625,7 +722,7 @@ export default function RoomPage() {
     const next = !micOn
     stream.getAudioTracks().forEach((t) => (t.enabled = next))
     setMicOn(next)
-    emitMediaState(next, camOn)
+    emitMediaState(next, camOn, sharing)
   }
 
   const toggleCam = () => {
@@ -634,7 +731,53 @@ export default function RoomPage() {
     const next = !camOn
     stream.getVideoTracks().forEach((t) => (t.enabled = next))
     setCamOn(next)
-    emitMediaState(micOn, next)
+    emitMediaState(micOn, next, sharing)
+  }
+
+  // US-14 — Compartir pantalla. Sustituimos la pista de video de cada par por la de la
+  // pantalla con replaceTrack (sin renegociar) y, al detener, volvemos a la cámara.
+  const canShareScreen =
+    typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia
+
+  const stopSharing = () => {
+    const display = screenStreamRef.current
+    if (!display) return // ya detenido (evita doble ejecución desde el evento 'ended')
+    screenStreamRef.current = null
+    const camTrack = cameraTrackRef.current
+    const back = camTrack && camTrack.readyState === 'live' ? camTrack : null
+    videoSendersRef.current.forEach((sender) => sender.replaceTrack(back).catch(() => {}))
+    display.getTracks().forEach((t) => {
+      t.onended = null
+      t.stop()
+    })
+    setScreenStream(null)
+    setSharing(false)
+    emitMediaState(micOn, camOn, false)
+  }
+
+  const toggleScreenShare = async () => {
+    if (screenStreamRef.current) {
+      stopSharing()
+      return
+    }
+    let display: MediaStream
+    try {
+      display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+    } catch {
+      return // el usuario canceló el selector o denegó el permiso
+    }
+    const screenTrack = display.getVideoTracks()[0]
+    if (!screenTrack) {
+      display.getTracks().forEach((t) => t.stop())
+      return
+    }
+    screenStreamRef.current = display
+    setScreenStream(display)
+    setSharing(true)
+    videoSendersRef.current.forEach((sender) => sender.replaceTrack(screenTrack).catch(() => {}))
+    emitMediaState(micOn, camOn, true)
+    // El navegador ofrece su propio botón "Dejar de compartir"; reaccionamos a él.
+    screenTrack.onended = () => stopSharing()
   }
 
   /* ----------------------------- Estados de carga ---------------------------- */
@@ -788,13 +931,14 @@ export default function RoomPage() {
             >
               {/* Tu propio tile */}
               <VideoTile
-                stream={localStream}
+                stream={sharing ? screenStream : localStream}
                 username={profile?.username ?? 'Tú'}
                 avatarUrl={profile?.avatarUrl}
                 cameraOff={!camOn || !localStream}
                 muted={!micOn}
                 isLocal
                 label={localLabel}
+                screenSharing={sharing}
               />
               {/* Pares remotos */}
               {remoteList.map((p) => (
@@ -807,6 +951,7 @@ export default function RoomPage() {
                   muted={p.muted}
                   isLocal={false}
                   label={p.username}
+                  screenSharing={p.screenSharing}
                 />
               ))}
             </div>
@@ -859,6 +1004,30 @@ export default function RoomPage() {
                 </svg>
               }
             />
+            <button
+              type="button"
+              onClick={toggleScreenShare}
+              disabled={!canShareScreen}
+              aria-pressed={sharing}
+              aria-label={sharing ? 'Dejar de compartir pantalla' : 'Compartir pantalla'}
+              title={canShareScreen ? undefined : 'Este navegador no permite compartir pantalla'}
+              className="inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors disabled:opacity-40"
+              style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '9999px',
+                backgroundColor: sharing ? ACCENT_GREEN : '#fff',
+                color: sharing ? '#fff' : INK,
+                border: `1px solid ${sharing ? ACCENT_GREEN : 'rgba(26,31,24,0.18)'}`,
+                boxShadow: '0px 2px 4px rgba(26,31,24,0.12)',
+              }}
+            >
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M9 21h6M12 17v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                {sharing && <path d="M12 8v5M9.5 10.5L12 8l2.5 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />}
+              </svg>
+            </button>
             <button
               type="button"
               onClick={() => navigate('/dashboard')}
