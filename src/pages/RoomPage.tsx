@@ -506,18 +506,45 @@ export default function RoomPage() {
     ;(async () => {
       iceServersRef.current = await fetchIceServers()
       if (disposed) return
-      let stream: MediaStream | null = null
+      // Pedimos micrófono y cámara por separado: una sola petición combinada
+      // ({ audio, video }) rechaza ambos cuando el usuario niega solo uno, así que
+      // negar el micrófono dejaba sin video y viceversa. Combinamos lo concedido.
+      const tracks: MediaStreamTrack[] = []
+      let micDenied = false
+      let camDenied = false
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        const audio = await navigator.mediaDevices.getUserMedia({ audio: true })
+        tracks.push(...audio.getAudioTracks())
       } catch {
+        micDenied = true
+      }
+      try {
+        const video = await navigator.mediaDevices.getUserMedia({ video: true })
+        tracks.push(...video.getVideoTracks())
+      } catch {
+        camDenied = true
+      }
+      const stream = tracks.length > 0 ? new MediaStream(tracks) : null
+      if (micDenied && camDenied) {
         setMediaError(
-          'No se pudo acceder a la cámara/micrófono (permiso denegado o sin dispositivo). Puedes ver y oír a los demás, pero no transmitirás.'
+          'No se pudo acceder a la cámara ni al micrófono (permiso denegado o sin dispositivo). Puedes ver y oír a los demás, pero no transmitirás.'
+        )
+      } else if (micDenied) {
+        setMediaError(
+          'No se pudo acceder al micrófono (permiso denegado o sin dispositivo). Transmitirás solo video.'
+        )
+      } else if (camDenied) {
+        setMediaError(
+          'No se pudo acceder a la cámara (permiso denegado o sin dispositivo). Transmitirás solo audio.'
         )
       }
       if (disposed) {
         stream?.getTracks().forEach((t) => t.stop())
         return
       }
+      // Reflejar en los controles y en los demás participantes lo que realmente se obtuvo.
+      setMicOn(!micDenied)
+      setCamOn(!camDenied)
       localStreamRef.current = stream
       setLocalStream(stream)
       socket.emit('rtc:ready', {
@@ -526,6 +553,7 @@ export default function RoomPage() {
         username: profile.username,
         avatarUrl: profile.avatarUrl,
       })
+      if (micDenied || camDenied) emitMediaState(!micDenied, !camDenied)
     })()
 
     return () => {
