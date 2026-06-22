@@ -841,8 +841,8 @@ export default function RoomPage() {
     <main id="main-content" className="h-screen flex flex-col" style={{ backgroundColor: CREAM }}>
       {/* Cabecera */}
       <header
-        className="flex items-center justify-between gap-4 shrink-0"
-        style={{ backgroundColor: PANEL_BG, borderBottom: '1px solid rgba(26,31,24,0.08)', padding: '14px 20px' }}
+        className="flex items-center justify-between gap-2 sm:gap-4 shrink-0 px-4 py-3 sm:px-5"
+        style={{ backgroundColor: PANEL_BG, borderBottom: '1px solid rgba(26,31,24,0.08)' }}
       >
         <div className="flex items-center gap-3 min-w-0">
           <button
@@ -900,22 +900,24 @@ export default function RoomPage() {
           <span
             className="inline-flex items-center gap-1.5"
             style={{ fontSize: '12px', fontWeight: 600, color: connected ? DARK_GREEN : CORAL }}
+            title={connected ? 'Conectado' : 'Conectando...'}
           >
             <span
               className="rounded-full"
               style={{ width: '8px', height: '8px', backgroundColor: connected ? ACCENT_GREEN : CORAL }}
               aria-hidden="true"
             />
-            {connected ? 'Conectado' : 'Conectando...'}
+            <span className="hidden sm:inline">{connected ? 'Conectado' : 'Conectando...'}</span>
           </span>
         </div>
       </header>
 
       {/* Cuerpo: escenario de video (US-09) + panel de chat */}
       <div className="flex-1 min-h-0 flex flex-col md:flex-row">
-        {/* Escenario de video */}
+        {/* Escenario de video: en móvil ocupa una altura fija (el chat toma el resto);
+            en escritorio crece para llenar el ancho restante. */}
         <section
-          className="flex-1 min-h-0 flex flex-col"
+          className="flex flex-col min-h-0 h-[48vh] md:h-auto md:flex-1"
           aria-label={`Videollamada · ${tileCount} ${tileCount === 1 ? 'participante' : 'participantes'}`}
         >
           {mediaError && (
@@ -927,7 +929,11 @@ export default function RoomPage() {
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ padding: '16px' }}>
             <div
               className="grid gap-3"
-              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', alignContent: 'start' }}
+              style={{
+                // min(100%, 220px) evita que el track de 220px desborde en pantallas estrechas.
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                alignContent: 'start',
+              }}
             >
               {/* Tu propio tile */}
               <VideoTile
@@ -965,7 +971,7 @@ export default function RoomPage() {
 
           {/* Barra de controles de media */}
           <div
-            className="shrink-0 flex items-center justify-center gap-3"
+            className="shrink-0 flex flex-wrap items-center justify-center gap-3"
             style={{ padding: '12px', borderTop: '1px solid rgba(26,31,24,0.08)', backgroundColor: PANEL_BG }}
           >
             <ControlButton
@@ -1040,10 +1046,11 @@ export default function RoomPage() {
           </div>
         </section>
 
-        {/* Panel de chat */}
+        {/* Panel de chat: en móvil toma la altura restante (borde superior); en escritorio
+            es una columna lateral de ancho fijo (borde izquierdo). */}
         <aside
-          className="flex flex-col min-h-0 shrink-0 md:w-[360px]"
-          style={{ borderLeft: '1px solid rgba(26,31,24,0.08)', backgroundColor: CREAM }}
+          className="flex flex-col min-h-0 flex-1 border-t md:flex-none md:border-t-0 md:border-l md:w-[360px]"
+          style={{ borderColor: 'rgba(26,31,24,0.08)', backgroundColor: CREAM }}
           aria-label="Chat de la sala"
         >
           <section className="flex-1 min-h-0 overflow-y-auto px-4 py-4" aria-live="polite">
