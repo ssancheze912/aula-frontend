@@ -339,6 +339,7 @@ export default function LandingPage() {
       <header className="px-6 lg:px-12 py-5 flex items-center justify-between max-w-7xl mx-auto">
         <a
           href="#main-content"
+          aria-label="Aula, inicio"
           className="inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded"
           style={{ fontFamily: "'Sora', sans-serif" }}
         >
@@ -833,6 +834,7 @@ export default function LandingPage() {
                 <li key={label}>
                   <button
                     type="button"
+                    aria-label={`${label} (próximamente)`}
                     className="text-[13px] hover:text-white focus:outline-none focus:ring-2 focus:ring-white/30 rounded"
                     style={{ color: '#6e6b5e' }}
                   >
@@ -866,6 +868,7 @@ function FooterColumn({ title, links }: { title: string; links: string[] }) {
           <li key={link}>
             <button
               type="button"
+              aria-label={`${link} (próximamente)`}
               className="text-sm text-left hover:text-white focus:outline-none focus:ring-2 focus:ring-white/30 rounded transition-colors"
               style={{ color: '#6e6b5e' }}
             >

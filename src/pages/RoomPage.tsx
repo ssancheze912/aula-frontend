@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import type { Socket } from 'socket.io-client'
 import { useAuth } from '../contexts/AuthContext'
+import { useAnnounce } from '../components/LiveAnnouncer'
 import { getRoom, type RoomSummary } from '../services/roomService'
 import { ApiError } from '../services/api'
 import {
@@ -172,9 +173,17 @@ function VideoTile({
 
   const showVideo = !!stream && !cameraOff
 
+  // Nombre accesible del tile: identidad + estado de cámara/micrófono (WCAG 1.1.1 / 1.3.1).
+  const statusText = [cameraOff ? 'cámara apagada' : null, muted ? 'micrófono silenciado' : null]
+    .filter(Boolean)
+    .join(', ')
+  const tileLabel = statusText ? `${label}, ${statusText}` : label
+
   return (
     <div
       className="relative rounded-2xl overflow-hidden"
+      role="group"
+      aria-label={tileLabel}
       style={{ backgroundColor: '#11150f', aspectRatio: '4 / 3', boxShadow: '0px 4px 10px rgba(26,31,24,0.18)' }}
     >
       {/* El <video> se mantiene montado (aunque oculto) para no perder la pista al alternar cámara. */}
@@ -183,6 +192,7 @@ function VideoTile({
         autoPlay
         playsInline
         muted={isLocal}
+        aria-hidden="true"
         className="w-full h-full object-cover"
         style={{ display: showVideo ? 'block' : 'none', transform: isLocal ? 'scaleX(-1)' : undefined }}
       />
@@ -192,10 +202,11 @@ function VideoTile({
         </div>
       )}
 
-      {/* Etiqueta de nombre + estado de micrófono */}
+      {/* Etiqueta de nombre + estado de micrófono (visual; el nombre accesible va en el group). */}
       <div
         className="absolute left-2 bottom-2 right-2 flex items-center justify-between gap-2"
         style={{ pointerEvents: 'none' }}
+        aria-hidden="true"
       >
         <span
           className="truncate inline-flex items-center gap-1.5"
@@ -241,7 +252,6 @@ function ControlButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-pressed={!active}
       aria-label={active ? labelOff : labelOn}
       className="inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors disabled:opacity-40"
       style={{
@@ -265,6 +275,7 @@ export default function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>()
   const navigate = useNavigate()
   const { user, profile } = useAuth()
+  const announce = useAnnounce()
 
   const [room, setRoom] = useState<RoomSummary | null>(null)
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading')
@@ -289,6 +300,10 @@ export default function RoomPage() {
   const pendingIceRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map())
   const localStreamRef = useRef<MediaStream | null>(null)
   const iceServersRef = useRef<RTCIceServer[]>([{ urls: 'stun:stun.l.google.com:19302' }])
+  // Espejo de los datos usados solo para construir anuncios de lector de pantalla
+  // (WCAG 4.1.3): nombres por userId y último estado de audio/video conocido.
+  const membersRef = useRef<RoomMember[]>([])
+  const avStateRef = useRef<Map<string, { muted: boolean; cameraOff: boolean }>>(new Map())
 
   const isHost = !!user && !!room && user.uid === room.hostId
 
@@ -409,17 +424,37 @@ export default function RoomPage() {
       setConnected(true)
       socket.emit('room:join', identity)
     })
-    socket.on('disconnect', () => setConnected(false))
-    socket.on('room:joined', ({ users }: { users: RoomMember[] }) => setMembers(users))
+    socket.on('disconnect', () => {
+      setConnected(false)
+      announce('Se perdió la conexión con la sala. Reconectando…', 'assertive')
+    })
+    socket.on('room:joined', ({ users }: { users: RoomMember[] }) => {
+      membersRef.current = users
+      setMembers(users)
+    })
     socket.on('chat:history', ({ messages: history }: { messages: ChatMessage[] }) => setMessages(history))
     socket.on('chat:message', ({ message }: { message: ChatMessage }) =>
       setMessages((prev) => [...prev, message])
     )
-    socket.on('room:user_joined', ({ user: member }: { user: RoomMember }) =>
-      setMembers((prev) => (prev.some((m) => m.userId === member.userId) ? prev : [...prev, member]))
-    )
+    socket.on('room:user_joined', ({ user: member }: { user: RoomMember }) => {
+      // No anunciar la propia entrada.
+      if (member.userId !== user.uid) announce(`${member.username} se unió a la sala`)
+      setMembers((prev) => {
+        if (prev.some((m) => m.userId === member.userId)) return prev
+        const next = [...prev, member]
+        membersRef.current = next
+        return next
+      })
+    })
     socket.on('room:user_left', ({ userId }: { userId: string }) => {
-      setMembers((prev) => prev.filter((m) => m.userId !== userId))
+      const gone = membersRef.current.find((m) => m.userId === userId)
+      if (gone) announce(`${gone.username} salió de la sala`)
+      avStateRef.current.delete(userId)
+      setMembers((prev) => {
+        const next = prev.filter((m) => m.userId !== userId)
+        membersRef.current = next
+        return next
+      })
       // Cerrar cualquier conexión P2P de quien se fue (el socketId se resuelve por userId).
       for (const [peerId, meta] of peerMeta.entries()) {
         if (meta.userId === userId) removePeer(peerId)
@@ -516,6 +551,19 @@ export default function RoomPage() {
         for (const [peerId, meta] of peerMeta.entries()) {
           if (meta.userId === userId) upsertRemote(peerId, { muted: isMuted, cameraOff: isCameraOff })
         }
+        // Anunciar al lector de pantalla solo lo que realmente cambió (WCAG 4.1.3).
+        const prev = avStateRef.current.get(userId)
+        const name =
+          membersRef.current.find((m) => m.userId === userId)?.username ??
+          [...peerMeta.values()].find((m) => m.userId === userId)?.username ??
+          'Un participante'
+        if (!prev || prev.muted !== isMuted) {
+          announce(`${name} ${isMuted ? 'silenció su micrófono' : 'activó su micrófono'}`)
+        }
+        if (!prev || prev.cameraOff !== isCameraOff) {
+          announce(`${name} ${isCameraOff ? 'apagó su cámara' : 'encendió su cámara'}`)
+        }
+        avStateRef.current.set(userId, { muted: isMuted, cameraOff: isCameraOff })
       }
     )
 
@@ -598,7 +646,7 @@ export default function RoomPage() {
       setRemotePeers({})
       setLocalStream(null)
     }
-  }, [loadState, roomId, user, profile])
+  }, [loadState, roomId, user, profile, announce])
 
   // 3. Auto-scroll al último mensaje.
   useEffect(() => {
@@ -648,6 +696,7 @@ export default function RoomPage() {
     stream.getAudioTracks().forEach((t) => (t.enabled = next))
     setMicOn(next)
     emitMediaState(next, camOn)
+    announce(next ? 'Micrófono activado' : 'Micrófono silenciado', 'assertive')
   }
 
   const toggleCam = () => {
@@ -657,6 +706,7 @@ export default function RoomPage() {
     stream.getVideoTracks().forEach((t) => (t.enabled = next))
     setCamOn(next)
     emitMediaState(micOn, next)
+    announce(next ? 'Cámara encendida' : 'Cámara apagada', 'assertive')
   }
 
   /* ----------------------------- Estados de carga ---------------------------- */
@@ -667,6 +717,7 @@ export default function RoomPage() {
         id="main-content"
         className="min-h-screen flex items-center justify-center"
         style={{ backgroundColor: CREAM, color: MUTED }}
+        role="status"
         aria-busy="true"
       >
         Cargando sala...
@@ -899,7 +950,13 @@ export default function RoomPage() {
           style={{ borderLeft: '1px solid rgba(26,31,24,0.08)', backgroundColor: CREAM }}
           aria-label="Chat de la sala"
         >
-          <section className="flex-1 min-h-0 overflow-y-auto px-4 py-4" aria-live="polite">
+          <section
+            className="flex-1 min-h-0 overflow-y-auto px-4 py-4"
+            role="log"
+            aria-label="Mensajes del chat"
+            aria-live="polite"
+            aria-relevant="additions text"
+          >
             {messages.length === 0 ? (
               <p className="text-center py-10" style={{ color: MUTED, fontSize: '14px' }}>
                 Aún no hay mensajes. ¡Saluda a la sala! 🌿
