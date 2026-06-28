@@ -8,5 +8,10 @@
  */
 export function envUrl(value: string | undefined, fallback: string): string {
   const trimmed = value?.trim()
-  return trimmed ? trimmed.replace(/\/+$/, '') : fallback
+  if (!trimmed) return fallback
+  // Quita las barras finales (sin regex, para evitar backtracking) y así no
+  // duplicar la barra al concatenar rutas: `${base}/api`.
+  let end = trimmed.length
+  while (end > 0 && trimmed[end - 1] === '/') end--
+  return trimmed.slice(0, end)
 }
