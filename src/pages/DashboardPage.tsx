@@ -1222,7 +1222,7 @@ export default function DashboardPage() {
 
         <section className="px-6 md:px-10 py-6 flex-1" aria-label="Tus salas de estudio" aria-live="polite">
           {loadingRooms ? (
-            <p className="text-center py-16" style={{ color: MUTED }} aria-busy="true">
+            <p className="text-center py-16" style={{ color: MUTED }} role="status" aria-busy="true">
               Cargando tus salas...
             </p>
           ) : loadError ? (
@@ -1245,17 +1245,18 @@ export default function DashboardPage() {
                     : 'No hay salas para mostrar.'}
             </p>
           ) : (
-            <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+            <ul className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
               {filtered.map((room) => (
-                <RoomCard
-                  key={room.id}
-                  room={room}
-                  onOpen={() => navigate(`/room/${room.id}`)}
-                  onEdit={() => setEditing(room)}
-                  onDelete={() => setDeleting(room)}
-                />
+                <li key={room.id}>
+                  <RoomCard
+                    room={room}
+                    onOpen={() => navigate(`/room/${room.id}`)}
+                    onEdit={() => setEditing(room)}
+                    onDelete={() => setDeleting(room)}
+                  />
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </section>
       </div>

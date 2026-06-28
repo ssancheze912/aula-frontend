@@ -3,11 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import AppRouter from './routes/AppRouter'
 import { AuthProvider } from './contexts/AuthContext'
+import { LiveAnnouncerProvider } from './components/LiveAnnouncer'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <AppRouter />
-    </AuthProvider>
+    <LiveAnnouncerProvider>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
+    </LiveAnnouncerProvider>
   </StrictMode>,
 )
