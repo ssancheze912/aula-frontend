@@ -1,6 +1,7 @@
 import { auth } from '../config/firebase'
+import { envUrl } from '../config/env'
 
-const BASE_URL = import.meta.env.VITE_BACKEND_MAIN_URL ?? 'http://localhost:3001'
+const BASE_URL = envUrl(import.meta.env.VITE_BACKEND_MAIN_URL, 'http://localhost:3001')
 
 export class ApiError extends Error {
   status: number
