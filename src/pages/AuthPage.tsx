@@ -538,7 +538,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
       >
         <div className="w-full max-w-[440px]">
           <div className="flex justify-center mb-8">
-            <Link to="/" className="focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded">
+            <Link to="/" aria-label="Aula, ir al inicio" className="focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded">
               <AulaLogo />
             </Link>
           </div>
@@ -574,6 +574,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               <div
                 role="alert"
                 aria-live="assertive"
+                aria-atomic="true"
                 className="mb-2 p-3 rounded-lg text-sm"
                 style={{
                   backgroundColor: '#fef2f2',
@@ -648,6 +649,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   className="inline-flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded"
                   style={{
                     color: '#6e6b5e',
@@ -699,6 +701,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 </label>
                 <button
                   type="button"
+                  aria-label="Recuperar contraseña"
                   className="focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded"
                   style={{
                     fontFamily: "'Nunito', sans-serif",
@@ -748,7 +751,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 fontFamily: "'Nunito', sans-serif",
                 fontWeight: 600,
                 fontSize: '13px',
-                color: '#a39e8b',
+                color: '#6e6b5e',
               }}
             >
               o continuá con
@@ -760,6 +763,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
             type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
+            aria-label="Continuar con Google"
             className="w-full flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 hover:bg-gray-50 transition-colors"
             style={{
               backgroundColor: '#fff',

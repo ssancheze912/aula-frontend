@@ -29,6 +29,26 @@ button:disabled,
   cursor: not-allowed;
 }
 
+/* Foco visible global (red de seguridad WCAG 2.4.7 / 2.4.11).
+   Solo se muestra ante navegación por teclado, no al hacer clic. */
+:focus-visible {
+  outline: 3px solid #2e5f30;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respetar la preferencia del sistema de reducir movimiento (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Skip-link de accesibilidad */
 .sr-only {
   position: absolute;

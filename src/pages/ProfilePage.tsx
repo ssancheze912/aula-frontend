@@ -124,7 +124,7 @@ function Field({
           {error}
         </span>
       ) : hint ? (
-        <span id={`${id}-hint`} className="text-xs" style={{ color: '#a39e8b' }}>
+        <span id={`${id}-hint`} className="text-xs" style={{ color: '#6e6b5e' }}>
           {hint}
         </span>
       ) : null}
@@ -471,7 +471,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-6">
                 <div className="relative shrink-0" style={{ width: '96px', height: '96px' }}>
                   {form.avatarUrl ? (
-                    <img src={form.avatarUrl} alt="" className="rounded-full object-cover" style={{ width: '96px', height: '96px' }} referrerPolicy="no-referrer" />
+                    <img src={form.avatarUrl} alt={`Foto de perfil de ${fullName}`} className="rounded-full object-cover" style={{ width: '96px', height: '96px' }} referrerPolicy="no-referrer" />
                   ) : (
                     <div className="rounded-full flex items-center justify-center" style={{ width: '96px', height: '96px', backgroundColor: '#e8b43a', color: '#fff', fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: '28px' }}>
                       {initials}
@@ -501,7 +501,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="focus:outline-none focus:underline"
+                      className="focus:outline-none focus:underline focus:ring-2 focus:ring-offset-1 focus:ring-emerald-500"
                       style={{ fontSize: '13px', fontWeight: 700, color: ACCENT_GREEN }}
                     >
                       Subir imagen
@@ -510,14 +510,14 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => { setField('avatarUrl')(''); setAvatarError('') }}
-                        className="focus:outline-none focus:underline"
+                        className="focus:outline-none focus:underline focus:ring-2 focus:ring-offset-1 focus:ring-emerald-500"
                         style={{ fontSize: '13px', fontWeight: 600, color: MUTED }}
                       >
                         Quitar foto
                       </button>
                     )}
                   </div>
-                  <p className="mt-1" style={{ fontSize: '12px', color: '#a39e8b' }}>
+                  <p className="mt-1" style={{ fontSize: '12px', color: '#6e6b5e' }}>
                     JPG o PNG · máximo 8 MB · se recorta a un cuadrado de 256 px.
                   </p>
                 </div>
