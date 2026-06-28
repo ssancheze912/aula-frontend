@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client'
+import { envUrl } from '../config/env'
 
-const REALTIME_URL = import.meta.env.VITE_BACKEND_REALTIME_URL ?? 'http://localhost:3002'
+const REALTIME_URL = envUrl(import.meta.env.VITE_BACKEND_REALTIME_URL, 'http://localhost:3002')
 
 /** Mensaje de chat tal como lo emite backend-realtime (createdAt en ISO 8601). */
 export interface ChatMessage {
